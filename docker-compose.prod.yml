@@ -1,0 +1,88 @@
+services:
+  app:
+    image: ghcr.io/holiq/budgetly/app:${IMAGE_TAG:-latest}
+    restart: unless-stopped
+    env_file:
+      - .env
+    volumes:
+      - storage_data:/var/www/html/storage
+    networks:
+      - app_network
+    healthcheck:
+      test: ["CMD-SHELL", "php-fpm -t >/dev/null 2>&1 || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  nginx:
+    image: ghcr.io/holiq/budgetly/nginx:${IMAGE_TAG:-latest}
+    restart: unless-stopped
+    depends_on:
+      app:
+        condition: service_healthy
+    ports:
+      - "${APP_PORT:-8000}:80"
+    volumes:
+      - storage_data:/var/www/html/storage:ro
+    networks:
+      - app_network
+    healthcheck:
+      test:
+        ["CMD-SHELL", "wget -qO- http://127.0.0.1/up >/dev/null 2>&1 || exit 1"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+
+  # Optional: Queue Worker (uncomment if needed)
+  # queue:
+  #   image: ghcr.io/holiq/budgetly/app:${IMAGE_TAG:-latest}
+  #   restart: unless-stopped
+  #   env_file:
+  #     - .env
+  #   command: sh -lc "php artisan queue:work --sleep=1 --tries=3 --timeout=90"
+  #   volumes:
+  #     - storage_data:/var/www/html/storage
+  #   networks:
+  #     - app_network
+  #   depends_on:
+  #     app:
+  #       condition: service_healthy
+
+  # Optional: Scheduler (uncomment if needed)
+  # scheduler:
+  #   image: ghcr.io/holiq/budgetly/app:${IMAGE_TAG:-latest}
+  #   restart: unless-stopped
+  #   env_file:
+  #     - .env
+  #   command: sh -lc "php artisan schedule:work"
+  #   volumes:
+  #     - storage_data:/var/www/html/storage
+  #   networks:
+  #     - app_network
+  #   depends_on:
+  #     app:
+  #       condition: service_healthy
+
+  # Optional: Redis (uncomment if using Redis cache/queue)
+  # redis:
+  #   image: redis:7-alpine
+  #   restart: unless-stopped
+  #   command: redis-server --appendonly yes --requirepass "${REDIS_PASSWORD:-}"
+  #   volumes:
+  #     - redis_data:/data
+  #   networks:
+  #     - app_network
+  #   healthcheck:
+  #     test: ["CMD", "redis-cli", "ping"]
+  #     interval: 10s
+  #     timeout: 3s
+  #     retries: 3
+
+networks:
+  app_network:
+    driver: bridge
+
+volumes:
+  storage_data:
+  redis_data:

@@ -1,66 +1,176 @@
-<p align="center"><a href="https://laravel.com" target="_blank"><img src="https://raw.githubusercontent.com/laravel/art/master/logo-lockup/5%20SVG/2%20CMYK/1%20Full%20Color/laravel-logolockup-cmyk-red.svg" width="400" alt="Laravel Logo"></a></p>
+# 💰 Budgetly
 
-<p align="center">
-<a href="https://github.com/laravel/framework/actions"><img src="https://github.com/laravel/framework/workflows/tests/badge.svg" alt="Build Status"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/dt/laravel/framework" alt="Total Downloads"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/v/laravel/framework" alt="Latest Stable Version"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/l/laravel/framework" alt="License"></a>
-</p>
+A modern budget management application built with Laravel and Filament.
 
-## About Laravel
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![Docker Build](https://github.com/holiq/budgetly/actions/workflows/docker-build.yml/badge.svg)](https://github.com/holiq/budgetly/actions/workflows/docker-build.yml)
+[![Docker Image](https://img.shields.io/badge/docker-ghcr.io-blue.svg)](https://github.com/holiq/budgetly/pkgs/container/budgetly%2Fapp)
 
-Laravel is a web application framework with expressive, elegant syntax. We believe development must be an enjoyable and creative experience to be truly fulfilling. Laravel takes the pain out of development by easing common tasks used in many web projects, such as:
+## ✨ Features
 
-- [Simple, fast routing engine](https://laravel.com/docs/routing).
-- [Powerful dependency injection container](https://laravel.com/docs/container).
-- Multiple back-ends for [session](https://laravel.com/docs/session) and [cache](https://laravel.com/docs/cache) storage.
-- Expressive, intuitive [database ORM](https://laravel.com/docs/eloquent).
-- Database agnostic [schema migrations](https://laravel.com/docs/migrations).
-- [Robust background job processing](https://laravel.com/docs/queues).
-- [Real-time event broadcasting](https://laravel.com/docs/broadcasting).
+- 💳 Expense tracking and categorization
+- 📊 Budget planning and monitoring
+- 📈 Financial reports and analytics
+- 🔐 Secure authentication
+- 🎨 Beautiful and intuitive UI with Filament
 
-Laravel is accessible, powerful, and provides tools required for large, robust applications.
+## 🚀 Quick Start
 
-## Learning Laravel
+### Option 1: Using Pre-built Docker Image (Recommended)
 
-Laravel has the most extensive and thorough [documentation](https://laravel.com/docs) and video tutorial library of all modern web application frameworks, making it a breeze to get started with the framework.
+```bash
+# Download configuration files
+wget https://raw.githubusercontent.com/holiq/budgetly/main/docker-compose.prod.yml
+wget https://raw.githubusercontent.com/holiq/budgetly/main/.env.example
 
-You may also try the [Laravel Bootcamp](https://bootcamp.laravel.com), where you will be guided through building a modern Laravel application from scratch.
+# Configure environment
+cp .env.example .env
+nano .env  # Edit APP_KEY and other settings
 
-If you don't feel like reading, [Laracasts](https://laracasts.com) can help. Laracasts contains thousands of video tutorials on a range of topics including Laravel, modern PHP, unit testing, and JavaScript. Boost your skills by digging into our comprehensive video library.
+# Start the application
+docker compose -f docker-compose.prod.yml up -d
 
-## Laravel Sponsors
+# Generate application key (first time only)
+docker compose -f docker-compose.prod.yml exec app php artisan key:generate
 
-We would like to extend our thanks to the following sponsors for funding Laravel development. If you are interested in becoming a sponsor, please visit the [Laravel Partners program](https://partners.laravel.com).
+# Run migrations
+docker compose -f docker-compose.prod.yml exec app php artisan migrate --force
 
-### Premium Partners
+# Create admin user
+docker compose -f docker-compose.prod.yml exec app php artisan make:filament-user
+```
 
-- **[Vehikl](https://vehikl.com/)**
-- **[Tighten Co.](https://tighten.co)**
-- **[WebReinvent](https://webreinvent.com/)**
-- **[Kirschbaum Development Group](https://kirschbaumdevelopment.com)**
-- **[64 Robots](https://64robots.com)**
-- **[Curotec](https://www.curotec.com/services/technologies/laravel/)**
-- **[Cyber-Duck](https://cyber-duck.co.uk)**
-- **[DevSquad](https://devsquad.com/hire-laravel-developers)**
-- **[Jump24](https://jump24.co.uk)**
-- **[Redberry](https://redberry.international/laravel/)**
-- **[Active Logic](https://activelogic.com)**
-- **[byte5](https://byte5.de)**
-- **[OP.GG](https://op.gg)**
+Visit http://localhost:8000
 
-## Contributing
+### Option 2: Build from Source
 
-Thank you for considering contributing to the Laravel framework! The contribution guide can be found in the [Laravel documentation](https://laravel.com/docs/contributions).
+```bash
+# Clone repository
+git clone https://github.com/holiq/budgetly.git
+cd budgetly
 
-## Code of Conduct
+# Configure environment
+cp .env.example .env
+nano .env  # Edit configuration
 
-In order to ensure that the Laravel community is welcoming to all, please review and abide by the [Code of Conduct](https://laravel.com/docs/contributions#code-of-conduct).
+# Build and start
+docker compose up -d
 
-## Security Vulnerabilities
+# Setup application (first time only)
+docker compose exec app php artisan key:generate
+docker compose exec app php artisan migrate --force
+docker compose exec app php artisan make:filament-user
+```
 
-If you discover a security vulnerability within Laravel, please send an e-mail to Taylor Otwell via [taylor@laravel.com](mailto:taylor@laravel.com). All security vulnerabilities will be promptly addressed.
+Visit http://localhost:8000
 
-## License
+## 🔧 Configuration
 
-The Laravel framework is open-sourced software licensed under the [MIT license](https://opensource.org/licenses/MIT).
+### Environment Variables
+
+Key variables in `.env`:
+
+```env
+APP_NAME=Budgetly
+APP_ENV=production
+APP_KEY=                    # Generate with: php artisan key:generate
+APP_DEBUG=false
+APP_URL=http://localhost:8000
+APP_PORT=8000              # Port to expose the application
+
+# Database (SQLite by default, no configuration needed)
+DB_CONNECTION=sqlite
+
+# For MySQL/PostgreSQL:
+# DB_CONNECTION=mysql
+# DB_HOST=your-db-host
+# DB_PORT=3306
+# DB_DATABASE=budgetly
+# DB_USERNAME=your-username
+# DB_PASSWORD=your-password
+```
+
+### Using Specific Version
+
+```bash
+# Use specific release version
+IMAGE_TAG=v1.0.0 docker compose -f docker-compose.prod.yml up -d
+```
+
+### Enable Queue Worker (Optional)
+
+Uncomment the `queue` service in `docker-compose.yml` or `docker-compose.prod.yml`, then:
+
+```bash
+docker compose up -d
+```
+
+### Enable Redis Cache (Optional)
+
+1. Uncomment the `redis` service in docker-compose file
+2. Update `.env`:
+    ```env
+    CACHE_STORE=redis
+    QUEUE_CONNECTION=redis
+    REDIS_HOST=redis
+    REDIS_PASSWORD=your-secure-password
+    ```
+3. Restart: `docker compose up -d`
+
+## 📦 Production Deployment
+
+### With Reverse Proxy (Nginx/Caddy/Traefik)
+
+Example Nginx configuration:
+
+```nginx
+server {
+    listen 80;
+    server_name budgetly.yourdomain.com;
+
+    location / {
+        proxy_pass http://localhost:8000;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+}
+```
+
+Update `.env`:
+
+```env
+APP_URL=https://budgetly.yourdomain.com
+```
+
+### Update to Latest Version
+
+```bash
+# Pull latest image
+docker compose -f docker-compose.prod.yml pull
+
+# Restart with new image
+docker compose -f docker-compose.prod.yml up -d
+
+# Run migrations if needed
+docker compose -f docker-compose.prod.yml exec app php artisan migrate --force
+```
+
+## 🤝 Contributing
+
+Contributions are welcome! Please feel free to submit a Pull Request.
+
+1. Fork the repository
+2. Create your feature branch (`git checkout -b feature/AmazingFeature`)
+3. Commit your changes (`git commit -m 'Add some AmazingFeature'`)
+4. Push to the branch (`git push origin feature/AmazingFeature`)
+5. Open a Pull Request
+
+## 📝 License
+
+This project is open-sourced software licensed under the [MIT license](LICENSE).
+
+## 🐛 Issues & Support
+
+Found a bug or need help? Please [open an issue](https://github.com/holiq/budgetly/issues).

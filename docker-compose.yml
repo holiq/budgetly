@@ -1,109 +1,100 @@
 services:
-  app:
-    build:
-      context: .
-      dockerfile: Dockerfile
-      target: php-runtime
-    restart: unless-stopped
-    env_file:
-      - ./.env
-    volumes:
-      - ./.env:/var/www/html/.env:ro
-      - storage_data:/var/www/html/storage
-    networks:
-      - internal
-      - egress
-    healthcheck:
-      test: ["CMD-SHELL", "php-fpm -t >/dev/null 2>&1 || exit 1"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 40s
+    app:
+        build:
+            context: .
+            dockerfile: Dockerfile
+            target: php-runtime
+        restart: unless-stopped
+        env_file:
+            - .env
+        volumes:
+            - storage_data:/var/www/html/storage
+        networks:
+            - app_network
+        healthcheck:
+            test: ["CMD-SHELL", "php-fpm -t >/dev/null 2>&1 || exit 1"]
+            interval: 30s
+            timeout: 10s
+            retries: 3
+            start_period: 40s
 
-  nginx:
-    build:
-      context: .
-      dockerfile: Dockerfile
-      target: nginx-runtime
-    restart: unless-stopped
-    depends_on:
-      - app
-    volumes:
-      - storage_data:/var/www/html/storage:ro
-    networks:
-      - internal
-      - traefik
-    labels:
-      - "traefik.enable=true"
-      - "traefik.http.routers.${COMPOSE_PROJECT_NAME}.rule=Host(`${APP_DOMAIN}`)"
-      - "traefik.http.routers.${COMPOSE_PROJECT_NAME}.entrypoints=web"
-      - "traefik.http.routers.${COMPOSE_PROJECT_NAME}.service=${COMPOSE_PROJECT_NAME}-svc"
-      - "traefik.http.services.${COMPOSE_PROJECT_NAME}-svc.loadbalancer.server.port=80"
-      - "app=${APP_SLUG:-laravel}"
-    healthcheck:
-      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1/up >/dev/null 2>&1 || exit 1"]
-      interval: 30s
-      timeout: 5s
-      retries: 3
+    nginx:
+        build:
+            context: .
+            dockerfile: Dockerfile
+            target: nginx-runtime
+        restart: unless-stopped
+        depends_on:
+            app:
+                condition: service_healthy
+        ports:
+            - "${APP_PORT:-8000}:80"
+        volumes:
+            - storage_data:/var/www/html/storage:ro
+        networks:
+            - app_network
+        healthcheck:
+            test:
+                ["CMD-SHELL", "wget -qO- http://127.0.0.1/up >/dev/null 2>&1 || exit 1"]
+            interval: 30s
+            timeout: 5s
+            retries: 3
 
-  queue:
-    build:
-      context: .
-      dockerfile: Dockerfile
-      target: php-runtime
-    restart: unless-stopped
-    env_file:
-      - ./.env
-    command: sh -lc "php artisan queue:work --sleep=1 --tries=3 --timeout=90"
-    volumes:
-      - ./.env:/var/www/html/.env:ro
-      - storage_data:/var/www/html/storage
-    networks:
-      - internal
-      - egress
-    profiles: ["worker"]
+    # Optional: Queue Worker (uncomment if needed)
+    # queue:
+    #   build:
+    #     context: .
+    #     dockerfile: Dockerfile
+    #     target: php-runtime
+    #   restart: unless-stopped
+    #   env_file:
+    #     - .env
+    #   command: sh -lc "php artisan queue:work --sleep=1 --tries=3 --timeout=90"
+    #   volumes:
+    #     - storage_data:/var/www/html/storage
+    #   networks:
+    #     - app_network
+    #   depends_on:
+    #     app:
+    #       condition: service_healthy
 
-  scheduler:
-    build:
-      context: .
-      dockerfile: Dockerfile
-      target: php-runtime
-    restart: unless-stopped
-    env_file:
-      - ./.env
-    command: sh -lc "php artisan schedule:work"
-    volumes:
-      - ./.env:/var/www/html/.env:ro
-      - storage_data:/var/www/html/storage
-    networks:
-      - internal
-      - egress
-    profiles: ["worker"]
+    # Optional: Scheduler (uncomment if needed)
+    # scheduler:
+    #   build:
+    #     context: .
+    #     dockerfile: Dockerfile
+    #     target: php-runtime
+    #   restart: unless-stopped
+    #   env_file:
+    #     - .env
+    #   command: sh -lc "php artisan schedule:work"
+    #   volumes:
+    #     - storage_data:/var/www/html/storage
+    #   networks:
+    #     - app_network
+    #   depends_on:
+    #     app:
+    #       condition: service_healthy
 
-  redis:
-    image: redis:7-alpine
-    restart: unless-stopped
-    command: redis-server --appendonly yes --requirepass "${REDIS_PASSWORD:-}"
-    volumes:
-      - redis_data:/data
-    networks:
-      - internal
-    healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
-      interval: 10s
-      timeout: 3s
-      retries: 3
-    profiles: ["redis"]
+    # Optional: Redis (uncomment if using Redis cache/queue)
+    # redis:
+    #   image: redis:7-alpine
+    #   restart: unless-stopped
+    #   command: redis-server --appendonly yes --requirepass "${REDIS_PASSWORD:-}"
+    #   volumes:
+    #     - redis_data:/data
+    #   networks:
+    #     - app_network
+    #   healthcheck:
+    #     test: ["CMD", "redis-cli", "ping"]
+    #     interval: 10s
+    #     timeout: 3s
+    #     retries: 3
 
 networks:
-  traefik:
-    external: true
-    name: traefik
-  internal:
-    internal: true
-  egress:
-    driver: bridge
+    app_network:
+        driver: bridge
 
 volumes:
-  storage_data:
-  redis_data:
+    storage_data:
+    redis_data:

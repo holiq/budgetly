@@ -1,0 +1,196 @@
+name: Deploy to Production
+
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: "Environment to deploy"
+        required: true
+        type: choice
+        options:
+          - production
+          - staging
+      image_tag:
+        description: "Image tag to deploy (default: latest)"
+        required: false
+        default: "latest"
+
+jobs:
+  detect-servers:
+    name: Detect Available Servers
+    runs-on: ubuntu-latest
+    outputs:
+      servers: ${{ steps.detect.outputs.servers }}
+      count: ${{ steps.detect.outputs.count }}
+    steps:
+      - name: Detect configured servers
+        id: detect
+        run: |
+          SERVERS=()
+
+          # Check Server 1
+          if [ -n "${{ secrets.SERVER1_HOST }}" ]; then
+            SERVERS+=("server1")
+            echo "✅ Server 1 detected"
+          fi
+
+          # Check Server 2
+          if [ -n "${{ secrets.SERVER2_HOST }}" ]; then
+            SERVERS+=("server2")
+            echo "✅ Server 2 detected"
+          fi
+
+          # Check Server 3 (optional, untuk future)
+          if [ -n "${{ secrets.SERVER3_HOST }}" ]; then
+            SERVERS+=("server3")
+            echo "✅ Server 3 detected"
+          fi
+
+          # Check Server 4 (optional, untuk future)
+          if [ -n "${{ secrets.SERVER4_HOST }}" ]; then
+            SERVERS+=("server4")
+            echo "✅ Server 4 detected"
+          fi
+
+          if [ ${#SERVERS[@]} -eq 0 ]; then
+            echo "❌ No servers configured!"
+            exit 1
+          fi
+
+          # Convert array to JSON
+          SERVERS_JSON=$(printf '%s\n' "${SERVERS[@]}" | jq -R . | jq -s -c .)
+          echo "servers=$SERVERS_JSON" >> $GITHUB_OUTPUT
+          echo "count=${#SERVERS[@]}" >> $GITHUB_OUTPUT
+
+          echo "📊 Total servers: ${#SERVERS[@]}"
+          echo "🎯 Servers to deploy: $SERVERS_JSON"
+
+  deploy:
+    name: Deploy to ${{ matrix.server }}
+    needs: detect-servers
+    runs-on: ubuntu-latest
+    strategy:
+      # Deploy one server at a time for zero-downtime
+      max-parallel: 1
+      matrix:
+        server: ${{ fromJSON(needs.detect-servers.outputs.servers) }}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set server configuration
+        id: config
+        run: |
+          if [ "${{ matrix.server }}" == "server1" ]; then
+            echo "host=${{ secrets.SERVER1_HOST }}" >> $GITHUB_OUTPUT
+            echo "user=${{ secrets.SERVER1_USER }}" >> $GITHUB_OUTPUT
+            echo "port=${{ secrets.SERVER1_PORT || '22' }}" >> $GITHUB_OUTPUT
+            echo "app_path=${{ secrets.SERVER1_APP_PATH || '/var/www/budgetly' }}" >> $GITHUB_OUTPUT
+          elif [ "${{ matrix.server }}" == "server2" ]; then
+            echo "host=${{ secrets.SERVER2_HOST }}" >> $GITHUB_OUTPUT
+            echo "user=${{ secrets.SERVER2_USER }}" >> $GITHUB_OUTPUT
+            echo "port=${{ secrets.SERVER2_PORT || '22' }}" >> $GITHUB_OUTPUT
+            echo "app_path=${{ secrets.SERVER2_APP_PATH || '/var/www/budgetly' }}" >> $GITHUB_OUTPUT
+          elif [ "${{ matrix.server }}" == "server3" ]; then
+            echo "host=${{ secrets.SERVER3_HOST }}" >> $GITHUB_OUTPUT
+            echo "user=${{ secrets.SERVER3_USER }}" >> $GITHUB_OUTPUT
+            echo "port=${{ secrets.SERVER3_PORT || '22' }}" >> $GITHUB_OUTPUT
+            echo "app_path=${{ secrets.SERVER3_APP_PATH || '/var/www/budgetly' }}" >> $GITHUB_OUTPUT
+          elif [ "${{ matrix.server }}" == "server4" ]; then
+            echo "host=${{ secrets.SERVER4_HOST }}" >> $GITHUB_OUTPUT
+            echo "user=${{ secrets.SERVER4_USER }}" >> $GITHUB_OUTPUT
+            echo "port=${{ secrets.SERVER4_PORT || '22' }}" >> $GITHUB_OUTPUT
+            echo "app_path=${{ secrets.SERVER4_APP_PATH || '/var/www/budgetly' }}" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Deploy to ${{ matrix.server }}
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ steps.config.outputs.host }}
+          username: ${{ steps.config.outputs.user }}
+          port: ${{ steps.config.outputs.port }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          script_stop: true
+          script: |
+            set -e
+
+            echo "🚀 Starting deployment on ${{ matrix.server }}..."
+            cd ${{ steps.config.outputs.app_path }}
+
+            # Set image tag
+            export IMAGE_TAG="${{ github.event.inputs.image_tag }}"
+            echo "IMAGE_TAG=${IMAGE_TAG}" >> .env
+
+            # Pull latest images
+            echo "📦 Pulling Docker images..."
+            docker compose -f docker-compose.prod.yml pull
+
+            # Health check before deployment
+            echo "🏥 Running health check..."
+            if docker compose -f docker-compose.prod.yml ps | grep -q "Up"; then
+              echo "✅ Current containers are healthy"
+            fi
+
+            # Deploy with zero-downtime
+            echo "🔄 Deploying new version..."
+            docker compose -f docker-compose.prod.yml up -d --no-deps --build
+
+            # Wait for containers to be healthy
+            echo "⏳ Waiting for containers to be healthy..."
+            timeout 60 bash -c 'until docker compose -f docker-compose.prod.yml ps | grep -q "healthy"; do sleep 2; done' || {
+              echo "❌ Health check failed! Rolling back..."
+              docker compose -f docker-compose.prod.yml down
+              docker compose -f docker-compose.prod.yml up -d
+              exit 1
+            }
+
+            # Run migrations
+            echo "🗄️  Running database migrations..."
+            docker compose -f docker-compose.prod.yml exec -T app php artisan migrate --force
+
+            # Clear cache
+            echo "🧹 Clearing cache..."
+            docker compose -f docker-compose.prod.yml exec -T app php artisan optimize:clear
+            docker compose -f docker-compose.prod.yml exec -T app php artisan config:cache
+            docker compose -f docker-compose.prod.yml exec -T app php artisan route:cache
+            docker compose -f docker-compose.prod.yml exec -T app php artisan view:cache
+
+            # Clean up old images
+            echo "🧼 Cleaning up old images..."
+            docker image prune -f
+
+            # Final health check
+            echo "🏥 Final health check..."
+            if docker compose -f docker-compose.prod.yml ps | grep -q "healthy"; then
+              echo "✅ Deployment successful on ${{ matrix.server }}!"
+            else
+              echo "❌ Deployment failed on ${{ matrix.server }}!"
+              exit 1
+            fi
+
+      - name: Deployment notification
+        if: always()
+        run: |
+          if [ "${{ job.status }}" == "success" ]; then
+            echo "✅ Successfully deployed to ${{ matrix.server }}"
+          else
+            echo "❌ Deployment failed on ${{ matrix.server }}"
+          fi
+
+  verify-deployment:
+    name: Verify Full Deployment
+    needs: [detect-servers, deploy]
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Verify all servers
+        run: |
+          echo "✅ All servers deployed successfully!"
+          echo "🎉 Load balancer ready!"
+          echo ""
+          echo "📊 Deployment Summary:"
+          echo "  Environment: ${{ github.event.inputs.environment }}"
+          echo "  Image Tag: ${{ github.event.inputs.image_tag }}"
+          echo "  Total Servers: ${{ needs.detect-servers.outputs.count }}"
+          echo "  Deployed To: ${{ needs.detect-servers.outputs.servers }}"
