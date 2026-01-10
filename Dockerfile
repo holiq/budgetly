@@ -6,8 +6,9 @@ RUN apk add --no-cache \
     libpng-dev libjpeg-turbo-dev freetype-dev \
     postgresql-dev
 
+COPY --from=mlocati/php-extension-installer /usr/bin/install-php-extensions /usr/local/bin/
 RUN docker-php-ext-configure gd --with-freetype --with-jpeg \
- && docker-php-ext-install -j$(nproc) \
+ && install-php-extensions \
     pdo_mysql pdo_pgsql pgsql bcmath mbstring intl zip opcache gd pcntl
 
 RUN apk add --no-cache autoconf gcc g++ make \
