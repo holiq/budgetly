@@ -86,12 +86,12 @@ jobs:
         run: |
           mkdir -p /tmp/digests/nginx
           digest="${{ steps.build-nginx.outputs.digest }}"
-          touch "/tmp/digests/nginx/${digest#sha25:}"
+          touch "/tmp/digests/nginx/${digest#sha256:}"
 
       - name: Upload digest app artifact
         uses: actions/upload-artifact@v4
         with:
-          name: digests-app-${{ matrix.platform }}
+          name: digests-app-${{ env.PLATFORM_PAIR }}
           path: /tmp/digests/app/*
           if-no-files-found: error
           retention-days: 1
@@ -99,7 +99,7 @@ jobs:
       - name: Upload digest nginx artifact
         uses: actions/upload-artifact@v4
         with:
-          name: digests-nginx-${{ matrix.platform }}
+          name: digests-nginx-${{ env.PLATFORM_PAIR }}
           path: /tmp/digests/nginx/*
           if-no-files-found: error
           retention-days: 1
