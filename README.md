@@ -31,13 +31,13 @@ nano .env  # Edit APP_KEY and other settings
 docker compose -f docker-compose.prod.yml up -d
 
 # Generate application key (first time only)
-docker compose -f docker-compose.prod.yml exec app php artisan key:generate
+docker compose -f docker-compose.prod.yml exec budgetly_app php artisan key:generate
 
 # Run migrations
-docker compose -f docker-compose.prod.yml exec app php artisan migrate --force
+docker compose -f docker-compose.prod.yml exec budgetly_app php artisan migrate --force
 
 # Create admin user
-docker compose -f docker-compose.prod.yml exec app php artisan make:filament-user
+docker compose -f docker-compose.prod.yml exec budgetly_app php artisan make:filament-user
 ```
 
 Visit http://localhost:8000
@@ -57,9 +57,9 @@ nano .env  # Edit configuration
 docker compose up -d
 
 # Setup application (first time only)
-docker compose exec app php artisan key:generate
-docker compose exec app php artisan migrate --force
-docker compose exec app php artisan make:filament-user
+docker compose exec budgetly_app php artisan key:generate
+docker compose exec budgetly_app php artisan migrate --force
+docker compose exec budgetly_app php artisan make:filament-user
 ```
 
 Visit http://localhost:8000
@@ -154,7 +154,7 @@ docker compose -f docker-compose.prod.yml pull
 docker compose -f docker-compose.prod.yml up -d
 
 # Run migrations if needed
-docker compose -f docker-compose.prod.yml exec app php artisan migrate --force
+docker compose -f docker-compose.prod.yml exec budgetly_app php artisan migrate --force
 ```
 
 ## 🤝 Contributing
